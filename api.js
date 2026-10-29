@@ -1,35 +1,21 @@
-import axios from "axios";
-
-let cachedData = null;
-
-async function loadData() {
-  if (!cachedData) {
-    const response = await axios.get("./climate-data.json");
-    cachedData = response.data;
-  }
-  return cachedData;
-}
+import climateData from "./climate-data.json";
 
 export async function fetchDistricts() {
-  const data = await loadData();
-  return data.districts || Object.keys(data);
+  return climateData.districts || Object.keys(climateData);
 }
 
 export async function fetchClimate(districtId, from, to) {
-  const data = await loadData();
-  const districtData = data[districtId] || data;
+  const districtData = climateData[districtId] || climateData;
   return districtData.climate || districtData;
 }
 
 export async function fetchAdvisory(districtId) {
-  const data = await loadData();
-  const districtData = data[districtId] || data;
+  const districtData = climateData[districtId] || climateData;
   return districtData.advisory || { message: "Advisory data loaded successfully." };
 }
 
 export async function fetchInsights(districtId) {
-  const data = await loadData();
-  const districtData = data[districtId] || data;
+  const districtData = climateData[districtId] || climateData;
   return districtData.insights || { message: "Insights data loaded successfully." };
 }
 
