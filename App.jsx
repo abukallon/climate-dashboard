@@ -17,105 +17,87 @@ export default function App() {
     fetchDistricts()
       .then((data) => {
         setDistricts(data);
-        if (data.length) setSelectedId(data[0].id);
+        if (data && data.length > 0) {
+          setSelectedId(data[0]);
+        }
+        setLoading(false);
       })
-      .catch(() =>
-        setError(
-          "Could not reach the API. Make sure the backend is running on http://localhost:4000."
-        )
-      );
-  }, []);
-
-  const loadDistrictData = useCallback(async (districtId) => {
-    setLoading(true);
-    try {
-      const [climate, adv] = await Promise.all([
-        fetchClimate(districtId, "2015-01", "2025-12"),
-        fetchAdvisory(districtId),
-      ]);
-      setRecords(climate);
-      setAdvisory(adv);
-      setError(null);
-    } catch (e) {
-      setError(
-        "Could not reach the API. Make sure the backend is running on http://localhost:4000."
-      );
-    } finally {
-      setLoading(false);
-    }
+      .catch((err) => {
+        console.error("Failed to load districts:", err);
+        setError("Failed to load dashboard data. Please check data source.");
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
-    if (selectedId) loadDistrictData(selectedId);
-  }, [selectedId, loadDistrictData]);
+    if (!selectedId) return;
+    fetchClimate(selectedId)
+      .then((data) => setRecords(Array.isArray(data) ? data : data.climate || []))
+      .catch((err) => console.error("Climate fetch error:", err));
 
-  const selectedDistrict = districts.find((d) => d.id === selectedId);
+    fetchAdvisory(selectedId)
+      .then((data) => setAdvisory(data))
+      .catch((err) => console.error("Advisory fetch error:", err));
+  }, [selectedId]);
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <p className="eyebrow">Agricultural planning tool — pilot, 3 districts</p>
-        <h1>Climate Trend Visualization Dashboard</h1>
-        <p>
-          Interactive rainfall, temperature, and dry-spell trends for
-          agricultural planners in Sierra Leone, with rule-based advisory
-          flags for the selected district.
-        </p>
+    <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8">
+      <header className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-800">
+            Climate Trend Visualization Dashboard
+          </h1>
+          <p className="text-sm text-slate-600 mt-1">
+            Interactive rainfall, temperature, and dry-spell trends for agricultural planners in Sierra Leone.
+          </p>
+        </div>
+        <button
+          onClick={() => window.print()}
+          className="self-start md:self-auto bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition"
+        >
+          Print / Save report as PDF
+        </button>
       </header>
 
       {error && (
-        <div className="panel" style={{ margin: "16px 32px 0" }}>
-          <p className="empty-state">{error}</p>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6 text-sm">
+          {error}
         </div>
       )}
 
-      <div className="app-body">
-        <Sidebar districts={districts} selectedId={selectedId} onSelect={setSelectedId} />
-
-        <main className="main-content">
-          <section className="panel map-panel">
-            <h3>District overview</h3>
-            <p className="panel-sub">Click a district on the map or in the sidebar.</p>
-            {districts.length > 0 && (
-              <MapView districts={districts} selectedId={selectedId} onSelect={setSelectedId} />
-            )}
-          </section>
-
-          <section className="panel">
-            <h3>Advisory — {selectedDistrict ? selectedDistrict.name : ""}</h3>
-            <p className="panel-sub">
-              Rule-based comparison of the last 12 months against the historical average.
-            </p>
-            {loading ? (
-              <p className="loading-state">Loading advisory…</p>
-            ) : (
-              <AdvisoryPanel advisory={advisory} />
-            )}
-          </section>
-
-          <section className="charts-row">
-            <div className="panel">
-              <h3>Rainfall trend</h3>
-              <p className="panel-sub">Monthly rainfall, 2015–2025 (mm)</p>
-              <div style={{ height: 260 }}>
-                {!loading && records.length > 0 && <RainfallChart records={records} />}
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-6">
+          <Sidebar
+            districts={districts}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+        </div>
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <h2 className="text-lg font-semibold mb-3 text-slate-800">District Overview & Map</h2>
+            <div className="h-72 w-full bg-slate-100 rounded flex items-center justify-center">
+              <MapView selectedId={selectedId} onSelect={setSelectedId} />
             </div>
-            <div className="panel">
-              <h3>Temperature anomaly</h3>
-              <p className="panel-sub">Monthly anomaly vs 1991–2020 baseline (°C)</p>
-              <div style={{ height: 260 }}>
-                {!loading && records.length > 0 && <TemperatureChart records={records} />}
-              </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <h2 className="text-lg font-semibold mb-3 text-slate-800">Advisory</h2>
+            <AdvisoryPanel advisory={advisory} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-sm font-semibold mb-2 text-slate-700">Rainfall Trend (mm)</h2>
+              <RainfallChart data={records} />
             </div>
-          </section>
-        </main>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-sm font-semibold mb-2 text-slate-700">Temperature Anomaly (°C)</h2>
+              <TemperatureChart data={records} />
+            </div>
+          </div>
+        </div>
       </div>
-
-      <footer className="app-footer">
-        Data shown is synthetic placeholder data for development. Replace with
-        real CHIRPS and AgERA5 records before final submission — see backend/generateData.js.
-      </footer>
     </div>
   );
 }
